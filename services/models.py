@@ -26,3 +26,24 @@ class Services(models.Model):
     
     def __str__(self):
         return self.service_name
+    
+class Profile(models.Model):
+    user=models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name="profile")
+    profile_picture=models.ImageField(
+        "profile_pictures/",
+        blank=True,
+        null=True,
+    )
+    
+    def __str__(self):
+        return f"{self.user} profile"
+    
+class ServicePhoto(models.Model):
+    service=models.ForeignKey(Services,on_delete=models.CASCADE,related_name="photos")
+    image=models.ImageField(upload_to="service_photos/")
+    caption=models.CharField(max_length=200,blank=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f" Photo for {self.service.service_name}"
+    
