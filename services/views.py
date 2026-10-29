@@ -1,0 +1,85 @@
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets,status
+from .serializers import ServicesSerializer, ServicePhotoSerializer, ProfileSerializer
+from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser,FormParser
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, BasePermission
+from rest_framework.views import APIView
+from .permissions import IsOwnerOrReadOnly
+from .models import Services, ServicePhoto, Profile
+from rest_framework.filters import SearchFilter, OrderingFilter
+
+
+class IsServicePhotoOwnerOrReadOnly(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in ["GET","HEAD","OPTIONS"]:
+            return True
+        return obj.service.owner==request.user
+    
+class ServiceViewSet(viewsets.ModelViewSet):
+    queryset=Services.objects.all()
+    serializer_class=ServicesSerializer
+    permission_classes=[
+        IsAuthenticatedOrReadOnly,
+        IsOwnerOrReadOnly,
+    ]
+    filter_backends=[SearchFilter, OrderingFilter]
+    search_fields=[
+        "service_name",
+        "business_name",
+        "description",
+        "location",
+    ]
+    
+    ordering_fields=[
+        "created_at",
+        "updated_at",
+        "price",
+        "service_name",
+    ]
+    
+    ordering=["-created_at"]
+    
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+        
+class ServicePhotoViewSet(viewsets.ModelViewSet):
+    queryset=ServicePhoto.objects.select_related("service","service_owner").all()
+    serializer_class=ServicePhotoSerializer
+    permission_classes=[
+        IsServicePhotoOwnerOrReadOnly,
+        IsAuthenticatedOrReadOnly,
+    ]
+    parser_classes=[MultiPartParser,FormParser]
+    
+    def perform_create(self, serializer):
+        service=serializer.validated_data["service"]
+        
+        if service.owner!=self.request.user:
+            raise PermissionDenied("You can only upload photos to your own services. !")
+        serializer.save()
+        
+    
+class MyProfileView(APIView):
+    permission_classes=[IsAuthenticated]
+    parser_classes=[MultiPartParser,FormParser]
+    
+    def get_profile(self):
+        profile,created=Profile.objects.get_or_create(user=self.request.user)
+        return profile
+    
+    def get(self,request):
+        profile=self.get_profile()
+        serializer=ProfileSerializer(profile,context={"request":request},)
+        return Response(serializer.data)
+    
+    def patch(self,request):
+        profile=self.get_profile()
+        serializer=ProfileSerializer(
+            profile,data=request.data,partial=True,context={"request":request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data,status=status.HTTP_200_OK)
+    
