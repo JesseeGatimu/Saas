@@ -9,6 +9,9 @@ from rest_framework.views import APIView
 from .permissions import IsOwnerOrReadOnly
 from .models import Services, ServicePhoto, Profile
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.db import models
+from decimal import Decimal, InvalidOperation
+from rest_framework.exceptions import ValidationError
 
 
 class IsServicePhotoOwnerOrReadOnly(BasePermission):
@@ -40,6 +43,49 @@ class ServiceViewSet(viewsets.ModelViewSet):
     ]
     
     ordering=["-created_at"]
+    
+    def get_queryset(self):
+        queryset=Services.objects.all()
+        location=self.request.query_params.get("location")
+        min_price=self.request.query_params.get("min_price")
+        max_price=self.request.query_params.get("max_price")
+        
+        if location:
+            queryset=queryset.filter(location_icontains=location)
+            
+        if min_price is not None:
+            try:
+                min_price=Decimal(min_price)
+                if not min_price.is_finite() or min_price<0:
+                    raise ValueError
+            except(InvalidOperation, ValueError):
+                raise ValidationError({
+                    "min_price":"Enter a valid price"
+                })
+            
+            queryset=queryset.filter(
+                models.Q(price_gte=min_price),
+                models.Q(max_price_gte=min_price)
+            )
+        
+        if max_price is not None:
+            try:
+                max_price=Decimal(max_price)
+                if not max_price.is_finite() or max_price<0:
+                    raise ValueError
+            except(InvalidOperation, ValueError):
+                raise ValidationError({
+                    "max_price":"Enter a valid price"
+                })
+                
+            queryset=queryset.filter(price_lte=max_price)
+            
+        if (min_price is not None and max_price is not None and min_price>max_price):
+            raise ValidationError({
+                "price":"Min price cannot be greater than max price"
+            })
+        
+        return queryset
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
