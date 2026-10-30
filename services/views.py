@@ -12,6 +12,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db import models
 from decimal import Decimal, InvalidOperation
 from rest_framework.exceptions import ValidationError
+from django.db.models import Count, Avg
 
 
 class IsServicePhotoOwnerOrReadOnly(BasePermission):
@@ -21,7 +22,10 @@ class IsServicePhotoOwnerOrReadOnly(BasePermission):
         return obj.service.owner==request.user
     
 class ServiceViewSet(viewsets.ModelViewSet):
-    queryset=Services.objects.all()
+    queryset=Services.objects.annotate(
+        average_rating=Avg("reviews__rating"),
+        review_count=Count("reviews")
+    )
     serializer_class=ServicesSerializer
     permission_classes=[
         IsAuthenticatedOrReadOnly,

@@ -2,9 +2,11 @@ from rest_framework import serializers
 from .models import Services, Profile, ServicePhoto
 
 class ServicesSerializer(serializers.ModelSerializer):
+    average_rating=serializers.FloatField(read_only=True,allow_null=True)
+    review_count=serializers.IntegerField(read_only=True)
     class Meta:
         model=Services
-        Fields=[
+        fields=[
             'id',
             'owner',
             'business_name',
@@ -13,11 +15,13 @@ class ServicesSerializer(serializers.ModelSerializer):
             'price',
             'max_price',
             'description',
+            'average_rating',
+            'review_count',
             'location',
             'created_at',
             'updated_at',
         ]
-        read_only_fields=['id','owner','created_at','updated_at']
+        read_only_fields=['id','owner','average_rating','review_count','created_at','updated_at']
         
         
 class ProfileSerializer(serializers.ModelSerializer):

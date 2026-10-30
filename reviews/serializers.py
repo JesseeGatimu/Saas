@@ -23,7 +23,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             )
             
             if self.instance:
-                exoisting_reviews=existing_reviews.exclude(
+                existing_reviews=existing_reviews.exclude(
                     pk=self.instance.pk
                 )
             if existing_reviews.exists():
